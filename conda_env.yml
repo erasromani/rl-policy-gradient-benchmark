@@ -1,0 +1,27 @@
+name: ddrl_a4
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.8
+  - numpy
+  - absl-py=0.13.0
+  - pyparsing=2.4.7
+  - jupyterlab=3.0.14
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - pytorch::torchaudio
+  - ffmpeg
+  - matplotlib=3.4.2
+  - pip
+  - pip:
+      - protobuf==3.20.1
+      - termcolor==1.1.0
+      - tb-nightly
+      - yapf==0.31.0
+      - pygame
+      - gymnasium
+      - gymnasium[box2d]
+      - opencv-python
+      - imageio
+      - "imageio[ffmpeg]"
