@@ -1,13 +1,10 @@
 """
-    The file contains the basics of any policy gradient algorithm class to train with.
+The file contains the basics of any policy gradient algorithm class to train with.
 """
-
-import time
 
 import gymnasium as gym
 import numpy as np
 import torch
-import torch.nn as nn
 from torch.distributions import MultivariateNormal
 from torch.optim import Adam
 
@@ -16,27 +13,30 @@ from .utils import mkdir_datetime
 
 class BasePolicyGradient:
     """
-        This is the base policy gradient class we will use as our model in main.py
+    This is the base policy gradient class we will use as our model in main.py
     """
+
     def __init__(self, policy_class, env, **hyperparameters):
         """
-            Initializes the PG model, including hyperparameters.
+        Initializes the PG model, including hyperparameters.
 
-            Parameters:
-                policy_class - the policy class to use for our actor/critic networks.
-                env - the environment to train on.
-                hyperparameters - all extra arguments passed into PG that should be hyperparameters.
+        Parameters:
+            policy_class - the policy class to use for our actor/critic networks.
+            env - the environment to train on.
+            hyperparameters - all extra arguments passed into PG that should be hyperparameters.
 
-            Returns:
-                None
+        Returns:
+            None
         """
         # Make sure the environment is compatible with our code
-        assert(type(env.observation_space) == gym.spaces.Box)
-        assert(type(env.action_space) == gym.spaces.Box)
+        assert type(env.observation_space) == gym.spaces.Box
+        assert type(env.action_space) == gym.spaces.Box
 
         # Initialize hyperparameters for training with PG
         self._init_hyperparameters(hyperparameters)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
         # Extract environment information
         self.env = env
@@ -44,7 +44,7 @@ class BasePolicyGradient:
         self.obs_dim = env.observation_space.shape[0]
         self.act_dim = env.action_space.shape[0]
 
-         # Initialize actor and critic networks
+        # Initialize actor and critic networks
         self.actor = policy_class(self.obs_dim, self.act_dim)
 
         # Initialize optimizers for actor and critic
@@ -56,37 +56,37 @@ class BasePolicyGradient:
 
         # This logger will help us with printing out summaries of each iteration
         self.logger = {
-            't_so_far': 0,          # timesteps so far
-            'i_so_far': 0,          # iterations so far
-            'batch_lens': [],       # episodic lengths in batch
-            'batch_rews': [],       # episodic returns in batch
-            'actor_losses': [],     # losses of actor network in current iteration
+            "t_so_far": 0,  # timesteps so far
+            "i_so_far": 0,  # iterations so far
+            "batch_lens": [],  # episodic lengths in batch
+            "batch_rews": [],  # episodic returns in batch
+            "actor_losses": [],  # losses of actor network in current iteration
         }
 
     def learn(self, total_timesteps):
         """
-            Train the networks. Here is where the main algorithms resides.
+        Train the networks. Here is where the main algorithms resides.
 
-            Parameters:
-                total_timesteps - the total number of timesteps to train for
+        Parameters:
+            total_timesteps - the total number of timesteps to train for
         """
         raise NotImplementedError("Implement this in the policy subclass")
 
     def rollout(self):
         """
-            This is where we collect the batch of data from simulation. 
-            Since this is an on-policy algorithm, we'll need to collect a fresh batch
-            of data each time we iterate the actor/critic networks.
+        This is where we collect the batch of data from simulation.
+        Since this is an on-policy algorithm, we'll need to collect a fresh batch
+        of data each time we iterate the actor/critic networks.
 
-            Parameters:
-                None
+        Parameters:
+            None
 
-            Return:
-                batch_obs - the observations collected this batch. Shape: (number of timesteps, dimension of observation)
-                batch_acts - the actions collected this batch. Shape: (number of timesteps, dimension of action)
-                batch_log_probs - the log probabilities of each action taken this batch. Shape: (number of timesteps)
-                batch_rtgs - the Rewards-To-Go of each timestep in this batch. Shape: (number of timesteps)
-                batch_lens - the lengths of each episode this batch. Shape: (number of episodes)
+        Return:
+            batch_obs - the observations collected this batch. Shape: (number of timesteps, dimension of observation)
+            batch_acts - the actions collected this batch. Shape: (number of timesteps, dimension of action)
+            batch_log_probs - the log probabilities of each action taken this batch. Shape: (number of timesteps)
+            batch_rtgs - the Rewards-To-Go of each timestep in this batch. Shape: (number of timesteps)
+            batch_lens - the lengths of each episode this batch. Shape: (number of episodes)
         """
         # Batch data. For more details, check function header.
         batch_obs = []
@@ -100,13 +100,13 @@ class BasePolicyGradient:
         # upon each new episode
         ep_rews = []
 
-        t = 0 # Keeps track of how many timesteps we've run so far this batch
+        t = 0  # Keeps track of how many timesteps we've run so far this batch
 
         # Keep simulating until we've run more than or equal to specified timesteps per batch
         while t < self.timesteps_per_batch:
-            ep_rews = [] # rewards collected per episode
+            ep_rews = []  # rewards collected per episode
 
-            # Reset the environment. sNote that obs is short for observation. 
+            # Reset the environment. sNote that obs is short for observation.
             obs, _ = self.env.reset()
             done = False
 
@@ -116,12 +116,12 @@ class BasePolicyGradient:
                 if self.render:
                     self.env.render()
 
-                t += 1 # Increment timesteps ran this batch so far
+                t += 1  # Increment timesteps ran this batch so far
 
                 # Track observations in this batch
                 batch_obs.append(obs)
 
-                # Calculate action and make a step in the env. 
+                # Calculate action and make a step in the env.
                 # Note that rew is short for reward.
                 action, log_prob = self.get_action(obs)
                 obs, rew, terminated, truncated, _ = self.env.step(action)
@@ -143,25 +143,27 @@ class BasePolicyGradient:
         # Reshape data as tensors in the shape specified in function description, before returning
         batch_obs = torch.tensor(batch_obs, dtype=torch.float)
         batch_acts = torch.tensor(batch_acts, dtype=torch.float)
-        batch_log_probs = torch.tensor(batch_log_probs, dtype=torch.float).flatten()
-        batch_rtgs = self.compute_rtgs(batch_rews)                                                              # ALG STEP 4
+        batch_log_probs = torch.tensor(
+            batch_log_probs, dtype=torch.float
+        ).flatten()
+        batch_rtgs = self.compute_rtgs(batch_rews)  # ALG STEP 4
 
         # Log the episodic returns and episodic lengths in this batch.
-        self.logger['batch_rews'] = batch_rews
-        self.logger['batch_lens'] = batch_lens
+        self.logger["batch_rews"] = batch_rews
+        self.logger["batch_lens"] = batch_lens
         self.batch_rews = batch_rews
         return batch_obs, batch_acts, batch_log_probs, batch_rtgs, batch_lens
 
     def compute_rtgs(self, batch_rews):
         """
-            Compute the Reward-To-Go of each timestep in a batch given the rewards.
-            This is just the rewards normalized by the reward discount gamma and added to the past rewards.
+        Compute the Reward-To-Go of each timestep in a batch given the rewards.
+        This is just the rewards normalized by the reward discount gamma and added to the past rewards.
 
-            Parameters:
-                batch_rews - the rewards in a batch, Shape: (number of episodes, number of timesteps per episode)
+        Parameters:
+            batch_rews - the rewards in a batch, Shape: (number of episodes, number of timesteps per episode)
 
-            Return:
-                batch_rtgs - the rewards to go, Shape: (number of timesteps in batch)
+        Return:
+            batch_rtgs - the rewards to go, Shape: (number of timesteps in batch)
         """
         # The rewards-to-go (rtg) per episode per batch to return.
         # The shape will be (num episodes per batch, num timesteps per episode)
@@ -170,7 +172,7 @@ class BasePolicyGradient:
         # Iterate through each episode
         for ep_rews in reversed(batch_rews):
 
-            discounted_reward = 0 # The discounted reward so far
+            discounted_reward = 0  # The discounted reward so far
 
             # Iterate through all rewards in the episode. We go backwards for smoother calculation of each
             # discounted return (think about why it would be harder starting from the beginning)
@@ -185,14 +187,14 @@ class BasePolicyGradient:
 
     def get_action(self, obs):
         """
-            Queries an action from the actor network, should be called from rollout.
+        Queries an action from the actor network, should be called from rollout.
 
-            Parameters:
-                obs - the observation at the current timestep
+        Parameters:
+            obs - the observation at the current timestep
 
-            Return:
-                action - the action to take, as a numpy array
-                log_prob - the log probability of the selected action in the distribution
+        Return:
+            action - the action to take, as a numpy array
+            log_prob - the log probability of the selected action in the distribution
         """
         # Query the actor network for a mean action
         mean = self.actor(obs)
@@ -218,74 +220,84 @@ class BasePolicyGradient:
 
     def evaluate(self, batch_obs, batch_acts, batch_rtgs):
         """
-            Estimate the values of each observation, and the log probs of
-            each action in the most recent batch with the most recent
-            iteration of the actor network. Should be called from learn.
+        Estimate the values of each observation, and the log probs of
+        each action in the most recent batch with the most recent
+        iteration of the actor network. Should be called from learn.
 
-            Parameters:
-                batch_obs - the observations from the most recently collected batch as a tensor.
-                            Shape: (number of timesteps in batch, dimension of observation)
-                batch_acts - the actions from the most recently collected batch as a tensor.
-                            Shape: (number of timesteps in batch, dimension of action)
-                batch_rtgs - the rewards-to-go calculated in the most recently collected
-                                batch as a tensor. Shape: (number of timesteps in batch)
+        Parameters:
+            batch_obs - the observations from the most recently collected batch as a tensor.
+                        Shape: (number of timesteps in batch, dimension of observation)
+            batch_acts - the actions from the most recently collected batch as a tensor.
+                        Shape: (number of timesteps in batch, dimension of action)
+            batch_rtgs - the rewards-to-go calculated in the most recently collected
+                            batch as a tensor. Shape: (number of timesteps in batch)
         """
-        raise NotImplementedError("Implement this method in the policy gradient algorithm")
+        raise NotImplementedError(
+            "Implement this method in the policy gradient algorithm"
+        )
 
     def _init_hyperparameters(self, hyperparameters):
         """
-            Initialize default and custom values for hyperparameters
+        Initialize default and custom values for hyperparameters
 
-            Parameters:
-                hyperparameters - the extra arguments included when creating the PG model, should only include
-                                    hyperparameters defined below with custom values.
+        Parameters:
+            hyperparameters - the extra arguments included when creating the PG model, should only include
+                                hyperparameters defined below with custom values.
 
-            Return:
-                None
+        Return:
+            None
         """
         # Initialize default values for hyperparameters
         # Algorithm hyperparameters
-        self.timesteps_per_batch = 4800                 # Number of timesteps to run per batch
-        self.max_timesteps_per_episode = 1600           # Max number of timesteps per episode
-        self.n_updates_per_iteration = 5                # Number of times to update actor/critic per iteration
-        self.lr = 0.005                                 # Learning rate of actor optimizer
-        self.gamma = 0.95                               # Discount factor to be applied when calculating Rewards-To-Go
-        self.clip = 0.2                                 # Recommended 0.2, helps define the threshold to clip the ratio during SGA
+        self.timesteps_per_batch = 4800  # Number of timesteps to run per batch
+        self.max_timesteps_per_episode = (
+            1600  # Max number of timesteps per episode
+        )
+        self.n_updates_per_iteration = (
+            5  # Number of times to update actor/critic per iteration
+        )
+        self.lr = 0.005  # Learning rate of actor optimizer
+        self.gamma = 0.95  # Discount factor to be applied when calculating Rewards-To-Go
+        self.clip = 0.2  # Recommended 0.2, helps define the threshold to clip the ratio during SGA
 
         # Miscellaneous parameters
-        self.render = False                             # If we should render during rollout
-        self.save_freq = 10                             # How often we save in number of iterations
-        self.deterministic = False                      # If we're testing, don't sample actions
-        self.seed = None								# Sets the seed of our program, used for reproducibility of results
+        self.render = False  # If we should render during rollout
+        self.save_freq = 10  # How often we save in number of iterations
+        self.deterministic = False  # If we're testing, don't sample actions
+        self.seed = None  # Sets the seed of our program, used for reproducibility of results
 
         # Change any default values to custom values for specified hyperparameters
         for param, val in hyperparameters.items():
-            exec('self.' + param + ' = ' + str(val))
+            exec("self." + param + " = " + str(val))
 
         # Sets the seed if specified
         if self.seed != None:
             # Check if our seed is valid first
-            assert(type(self.seed) == int)
+            assert type(self.seed) == int
 
-            # Set the seed 
+            # Set the seed
             torch.manual_seed(self.seed)
             print(f"Successfully set seed to {self.seed}")
 
     def _log_summary(self):
         """
-            Print to stdout what we've logged so far in the most recent batch.
+        Print to stdout what we've logged so far in the most recent batch.
 
-            Parameters:
-                None
+        Parameters:
+            None
 
-            Return:
-                None
+        Return:
+            None
         """
-        t_so_far = self.logger['t_so_far']
-        i_so_far = self.logger['i_so_far']
-        avg_ep_lens = np.mean(self.logger['batch_lens'])
-        avg_ep_rews = np.mean([np.sum(ep_rews) for ep_rews in self.logger['batch_rews']])
-        avg_actor_loss = np.mean([losses.float().mean() for losses in self.logger['actor_losses']])
+        t_so_far = self.logger["t_so_far"]
+        i_so_far = self.logger["i_so_far"]
+        avg_ep_lens = np.mean(self.logger["batch_lens"])
+        avg_ep_rews = np.mean(
+            [np.sum(ep_rews) for ep_rews in self.logger["batch_rews"]]
+        )
+        avg_actor_loss = np.mean(
+            [losses.float().mean() for losses in self.logger["actor_losses"]]
+        )
 
         # Round decimal places for more aesthetic logging messages
         avg_ep_lens = str(round(avg_ep_lens, 2))
@@ -294,15 +306,21 @@ class BasePolicyGradient:
 
         # Print logging statements
         print(flush=True)
-        print(f"-------------------- Iteration #{i_so_far} --------------------", flush=True)
+        print(
+            f"-------------------- Iteration #{i_so_far} --------------------",
+            flush=True,
+        )
         print(f"Average Episodic Length: {avg_ep_lens}", flush=True)
         print(f"Average Episodic Return: {avg_ep_rews}", flush=True)
         print(f"Average Loss: {avg_actor_loss}", flush=True)
         print(f"Timesteps So Far: {t_so_far}", flush=True)
-        print(f"------------------------------------------------------", flush=True)
+        print(
+            f"------------------------------------------------------",
+            flush=True,
+        )
         print(flush=True)
 
         # Reset batch-specific logging data
-        self.logger['batch_lens'] = []
-        self.logger['batch_rews'] = []
-        self.logger['actor_losses'] = []
+        self.logger["batch_lens"] = []
+        self.logger["batch_rews"] = []
+        self.logger["actor_losses"] = []

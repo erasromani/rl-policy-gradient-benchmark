@@ -1,9 +1,10 @@
 """
-    The file contains the PPO class to train with.
-    NOTE: Original PPO pseudocode can be found here: https://spinningup.openai.com/en/latest/_images/math/e62a8971472597f4b014c2da064f636ffe365ba3.svg
+The file contains the PPO class to train with.
+NOTE: Original PPO pseudocode can be found here: https://spinningup.openai.com/en/latest/_images/math/e62a8971472597f4b014c2da064f636ffe365ba3.svg
 """
 
-import time
+import csv
+import os
 
 import gymnasium as gym
 import numpy as np
@@ -18,20 +19,20 @@ from .video import VideoRecorder
 
 class PPO(BasePolicyGradient):
     """
-        This is the PPO class we will use as our model in main.py
+    This is the PPO class we will use as our model in main.py
     """
 
     def __init__(self, policy_class, env, **hyperparameters):
         """
-            Initializes the PPO model, including hyperparameters.
+        Initializes the PPO model, including hyperparameters.
 
-            Parameters:
-                policy_class - the policy class to use for our actor/critic networks.
-                env - the environment to train on.
-                hyperparameters - all extra arguments passed into PPO that should be hyperparameters.
+        Parameters:
+            policy_class - the policy class to use for our actor/critic networks.
+            env - the environment to train on.
+            hyperparameters - all extra arguments passed into PPO that should be hyperparameters.
 
-            Returns:
-                None
+        Returns:
+            None
         """
         super().__init__(policy_class, env, **hyperparameters)
         self.critic = policy_class(self.obs_dim, 1).to(self.device)
@@ -39,18 +40,21 @@ class PPO(BasePolicyGradient):
 
     def learn(self, total_timesteps):
         """
-            Train the actor and critic networks. Here is where the main PPO algorithm resides.
+        Train the actor and critic networks. Here is where the main PPO algorithm resides.
 
-            Parameters:
-                total_timesteps - the total number of timesteps to train for
+        Parameters:
+            total_timesteps - the total number of timesteps to train for
 
-            Return:
-                None
+        Return:
+            None
         """
         print(
-            f"Learning... Running {self.max_timesteps_per_episode} timesteps per episode, ", end='')
+            f"Learning... Running {self.max_timesteps_per_episode} timesteps per episode, ",
+            end="",
+        )
         print(
-            f"{self.timesteps_per_batch} timesteps per batch for a total of {total_timesteps} timesteps")
+            f"{self.timesteps_per_batch} timesteps per batch for a total of {total_timesteps} timesteps"
+        )
         t_so_far = 0  # Timesteps simulated so far
         i_so_far = 0  # Iterations ran so far
         self.training_rewards = []
@@ -59,7 +63,9 @@ class PPO(BasePolicyGradient):
         video_recorder = VideoRecorder(root_dir=self.output_dir)
         while t_so_far < total_timesteps:
             # We're collecting our batch simulations here
-            batch_obs, batch_acts, batch_log_probs, batch_rtgs, batch_lens = self.rollout()
+            batch_obs, batch_acts, batch_log_probs, batch_rtgs, batch_lens = (
+                self.rollout()
+            )
             batch_rewards = [np.sum(ep_rews) for ep_rews in self.batch_rews]
             self.training_rewards.extend(batch_rewards)
 
@@ -70,8 +76,8 @@ class PPO(BasePolicyGradient):
             i_so_far += 1
 
             # Logging timesteps so far and iterations so far
-            self.logger['t_so_far'] = t_so_far
-            self.logger['i_so_far'] = i_so_far
+            self.logger["t_so_far"] = t_so_far
+            self.logger["i_so_far"] = i_so_far
 
             V, _ = self.evaluate(batch_obs, batch_acts, batch_rtgs)
             A_k = batch_rtgs - V.detach()
@@ -84,7 +90,9 @@ class PPO(BasePolicyGradient):
 
             # This is the loop where we update our network for some n epochs
             for _ in range(self.n_updates_per_iteration):
-                V, curr_log_probs = self.evaluate(batch_obs, batch_acts, batch_rtgs)
+                V, curr_log_probs = self.evaluate(
+                    batch_obs, batch_acts, batch_rtgs
+                )
                 ratios = torch.exp(curr_log_probs - batch_log_probs)
 
                 surr1 = ratios * A_k
@@ -103,7 +111,7 @@ class PPO(BasePolicyGradient):
                 self.critic_optim.step()
 
                 # Log actor loss
-                self.logger['actor_losses'].append(actor_loss.detach())
+                self.logger["actor_losses"].append(actor_loss.detach())
 
             # Print a summary of our training so far
             self._log_summary()
@@ -115,9 +123,15 @@ class PPO(BasePolicyGradient):
                 video_recorder.init(eval_env, enabled=True)
 
                 for _ in range(self.max_timesteps_per_episode):
-                    obs_tensor = torch.tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.device)
+                    obs_tensor = (
+                        torch.tensor(obs, dtype=torch.float32)
+                        .unsqueeze(0)
+                        .to(self.device)
+                    )
                     with torch.no_grad():
-                        action = self.actor(obs_tensor).squeeze(0).cpu().numpy()
+                        action = (
+                            self.actor(obs_tensor).squeeze(0).cpu().numpy()
+                        )
 
                     obs, _, done, truncated, _ = eval_env.step(action)
                     video_recorder.record(eval_env)
@@ -132,22 +146,36 @@ class PPO(BasePolicyGradient):
 
             # Save our model if it's time
             if i_so_far % self.save_freq == 0:
-                torch.save(self.actor.state_dict(), './ppo_actor.pth')
-                torch.save(self.critic.state_dict(), './ppo_critic.pth')
+                torch.save(self.actor.state_dict(), "./ppo_actor.pth")
+                torch.save(self.critic.state_dict(), "./ppo_critic.pth")
+
+        os.makedirs(self.output_dir, exist_ok=True)
+        filename = (
+            f"reinforce_rewards_seed{self.seed}_env{self.env.spec.id}.csv"
+        )
+        filepath = os.path.join(self.output_dir, filename)
+
+        with open(filepath, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Episode", "Reward"])
+            for idx, r in enumerate(self.training_rewards):
+                writer.writerow([idx, r])
+
+        print(f"[INFO] Saved reward log to {filepath}")
 
     def evaluate(self, batch_obs, batch_acts, batch_rtgs):
         """
-            Estimate the values of each observation, and the log probs of
-            each action in the most recent batch with the most recent
-            iteration of the actor network. Should be called from learn.
+        Estimate the values of each observation, and the log probs of
+        each action in the most recent batch with the most recent
+        iteration of the actor network. Should be called from learn.
 
-            Parameters:
-                batch_obs - the observations from the most recently collected batch as a tensor.
-                            Shape: (number of timesteps in batch, dimension of observation)
-                batch_acts - the actions from the most recently collected batch as a tensor.
-                            Shape: (number of timesteps in batch, dimension of action)
-                batch_rtgs - the rewards-to-go calculated in the most recently collected
-                                batch as a tensor. Shape: (number of timesteps in batch)
+        Parameters:
+            batch_obs - the observations from the most recently collected batch as a tensor.
+                        Shape: (number of timesteps in batch, dimension of observation)
+            batch_acts - the actions from the most recently collected batch as a tensor.
+                        Shape: (number of timesteps in batch, dimension of action)
+            batch_rtgs - the rewards-to-go calculated in the most recently collected
+                            batch as a tensor. Shape: (number of timesteps in batch)
         """
         V = self.critic(batch_obs).squeeze()
 

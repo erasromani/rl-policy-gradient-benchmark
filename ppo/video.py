@@ -2,12 +2,13 @@ from pathlib import Path
 
 import cv2
 import imageio
-import numpy as np
 
 
 class VideoRecorder:
     def __init__(self, root_dir, render_size=256, fps=20):
-        self.save_dir = Path(root_dir) / "eval_video" if root_dir is not None else None
+        self.save_dir = (
+            Path(root_dir) / "eval_video" if root_dir is not None else None
+        )
         if self.save_dir is not None:
             self.save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -33,14 +34,22 @@ class VideoRecorder:
         try:
             if hasattr(env, "physics"):  # For DeepMind Control Suite
                 frame = env.physics.render(
-                    height=self.render_size, width=self.render_size, camera_id=0
+                    height=self.render_size,
+                    width=self.render_size,
+                    camera_id=0,
                 )
             else:
                 frame = env.render()  # Expecting render_mode="rgb_array"
                 if frame is None:
-                    raise ValueError("env.render() returned None. Did you set render_mode='rgb_array'?")
+                    raise ValueError(
+                        "env.render() returned None. Did you set render_mode='rgb_array'?"
+                    )
 
-            frame = cv2.resize(frame, (self.render_size, self.render_size), interpolation=cv2.INTER_CUBIC)
+            frame = cv2.resize(
+                frame,
+                (self.render_size, self.render_size),
+                interpolation=cv2.INTER_CUBIC,
+            )
             self.frames.append(frame)
 
         except Exception as e:
@@ -56,7 +65,9 @@ class VideoRecorder:
 
 class TrainVideoRecorder:
     def __init__(self, root_dir, render_size=256, fps=20):
-        self.save_dir = Path(root_dir) / "train_video" if root_dir is not None else None
+        self.save_dir = (
+            Path(root_dir) / "train_video" if root_dir is not None else None
+        )
         if self.save_dir is not None:
             self.save_dir.mkdir(parents=True, exist_ok=True)
 
