@@ -150,9 +150,7 @@ class PPO(BasePolicyGradient):
                 torch.save(self.critic.state_dict(), "./ppo_critic.pth")
 
         os.makedirs(self.output_dir, exist_ok=True)
-        filename = (
-            f"reinforce_rewards_seed{self.seed}_env{self.env.spec.id}.csv"
-        )
+        filename = f"ppo_rewards_seed{self.seed}_env{self.env.spec.id}.csv"
         filepath = os.path.join(self.output_dir, filename)
 
         with open(filepath, "w", newline="") as f:
