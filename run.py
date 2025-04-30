@@ -3,14 +3,16 @@
     with the input seed and environment.
 """
 
-import gymnasium as gym
-import os
 import argparse
+import os
+
+import gymnasium as gym
+
+from ppo.network import FeedForwardNN
 
 # Import ppo files
 from ppo.ppo import PPO
 from ppo.reinforce import REINFORCE
-from ppo.network import FeedForwardNN
 
 
 def train_ppo(args):
@@ -68,7 +70,7 @@ def train_reinforce(args):
         hyperparameters = {'timesteps_per_batch': 2048, 'max_timesteps_per_episode': 1600, 'gamma': 0.99, 'n_updates_per_iteration': 1,
                             'lr': 2.5e-4, 'clip': 0.2, 'save_freq': 1e6, 'seed': args.seed}
         total_timesteps = 6405000
-    elif args.env == 'LunarLanderContinuous-v2':
+    elif args.env == 'LunarLanderContinuous-v3':
         hyperparameters = {'timesteps_per_batch': 1024, 'max_timesteps_per_episode': 1000, 'gamma': 0.999, 'n_updates_per_iteration': 1,
                             'lr': 2.5e-4, 'clip': 0.2, 'save_freq': 1e6, 'seed': args.seed}
         total_timesteps = 6005000
